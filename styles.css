@@ -1,24 +1,30 @@
-.table-responsive {
-    max-height: 500px;
-    overflow-y: auto;
-}
-
 .dashboard-card {
-    transition: transform 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
 }
 
 .dashboard-card:hover {
     transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
 .nav-link {
-    cursor: pointer;
+    transition: color 0.3s;
 }
 
-#expenseList tr:hover {
-    background-color: #f8f9fa;
+.nav-link:hover {
+    color: #20c997 !important;
 }
 
-canvas {
-    max-height: 400px;
+.list-group-item {
+    transition: background-color 0.3s;
+}
+
+
+.main-section {
+    display: none;
+}
+
+.main-section.active {
+    display: block;
 }
