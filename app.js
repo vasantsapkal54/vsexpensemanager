@@ -1,22 +1,13 @@
-// Static Credentials
-const STATIC_CREDENTIALS = {
-    username: 'admin',
-    password: 'admin555'
-};
+const STATIC_CREDENTIALS = { username: 'admin', password: 'admin555' };
+let currentChart = null;
 
-// Initialize Local Storage
 function initStorage() {
-    if(!localStorage.getItem('expenses')) {
-        localStorage.setItem('expenses', JSON.stringify([]));
-    }
-    if(!localStorage.getItem('categories')) {
-        localStorage.setItem('categories', JSON.stringify([
-            'Food', 'Transport', 'Utilities', 'Entertainment'
-        ]));
-    }
+    if(!localStorage.getItem('expenses')) localStorage.setItem('expenses', JSON.stringify([]));
+    if(!localStorage.getItem('categories')) localStorage.setItem('categories', JSON.stringify([
+        'Food', 'Transport', 'Utilities', 'Entertainment'
+    ]));
 }
 
-// Login Function
 function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
@@ -30,95 +21,151 @@ function login() {
     }
 }
 
-// Expense Management
+function showSection(sectionId) {
+    document.querySelectorAll('.main-section').forEach(el => el.style.display = 'none');
+    const section = document.getElementById(sectionId);
+    if(section) {
+        section.style.display = 'block';
+        if(sectionId === 'dashboard') loadCharts();
+        if(sectionId === 'reports') generateReport();
+    }
+}
+
 function saveExpense(e) {
     e.preventDefault();
     const expense = {
         id: Date.now(),
         date: document.getElementById('expenseDate').value,
         category: document.getElementById('categorySelect').value,
-        amount: parseFloat(document.getElementById('expenseAmount').value)
+        amount: parseFloat(document.getElementById('expenseAmount').value),
+        description: document.getElementById('expenseDesc').value
     };
 
     const expenses = JSON.parse(localStorage.getItem('expenses'));
     expenses.push(expense);
     localStorage.setItem('expenses', JSON.stringify(expenses));
-    
     e.target.reset();
-    alert('Expense saved successfully!');
+    loadExpenses();
     loadCharts();
 }
 
-// Category Management
-function loadCategories() {
-    const categories = JSON.parse(localStorage.getItem('categories'));
-    const select = document.getElementById('categorySelect');
-    select.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
-    
-    const list = document.getElementById('categoryList');
-    list.innerHTML = categories.map(c => `
-        <li class="list-group-item d-flex justify-content-between">
-            ${c}
-            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c}')">Delete</button>
-        </li>
+function loadExpenses() {
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    const tbody = document.getElementById('expenseList');
+    tbody.innerHTML = expenses.map(expense => `
+        <tr>
+            <td>${expense.date}</td>
+            <td>${expense.category}</td>
+            <td>${expense.description}</td>
+            <td>₹${expense.amount.toFixed(2)}</td>
+            <td>
+                <button class="btn btn-sm btn-warning" onclick="editExpense(${expense.id})">Edit</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteExpense(${expense.id})">Delete</button>
+            </td>
+        </tr>
     `).join('');
 }
 
-function addCategory() {
-    const newCategory = document.getElementById('newCategory').value.trim();
-    if(newCategory) {
-        const categories = JSON.parse(localStorage.getItem('categories'));
-        if(!categories.includes(newCategory)) {
-            categories.push(newCategory);
-            localStorage.setItem('categories', JSON.stringify(categories));
-            loadCategories();
-            document.getElementById('newCategory').value = '';
-        }
-    }
+function deleteExpense(id) {
+    let expenses = JSON.parse(localStorage.getItem('expenses'));
+    expenses = expenses.filter(e => e.id !== id);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    loadExpenses();
+    loadCharts();
 }
 
-function deleteCategory(category) {
+function loadCategories() {
     const categories = JSON.parse(localStorage.getItem('categories'));
-    const filtered = categories.filter(c => c !== category);
-    localStorage.setItem('categories', JSON.stringify(filtered));
-    loadCategories();
+    const selects = document.querySelectorAll('#categorySelect, #reportCategory');
+    selects.forEach(select => {
+        select.innerHTML = `<option value="">All Categories</option>` + 
+            categories.map(c => `<option>${c}</option>`).join('');
+    });
 }
 
-// Chart Management
 function loadCharts() {
     const expenses = JSON.parse(localStorage.getItem('expenses'));
     
     // Monthly Chart
+    const monthlyData = expenses.reduce((acc, { date, amount }) => {
+        const month = date.slice(0, 7);
+        acc[month] = (acc[month] || 0) + amount;
+        return acc;
+    }, {});
+    
     const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
     new Chart(monthlyCtx, {
         type: 'line',
-        data: getMonthlyData(expenses)
+        data: {
+            labels: Object.keys(monthlyData),
+            datasets: [{
+                label: 'Monthly Expenses',
+                data: Object.values(monthlyData),
+                borderColor: '#3b82f6',
+                tension: 0.1
+            }]
+        }
     });
 
     // Category Chart
+    const categoryData = expenses.reduce((acc, { category, amount }) => {
+        acc[category] = (acc[category] || 0) + amount;
+        return acc;
+    }, {});
+    
     const categoryCtx = document.getElementById('categoryChart').getContext('2d');
     new Chart(categoryCtx, {
         type: 'pie',
-        data: getCategoryData(expenses)
+        data: {
+            labels: Object.keys(categoryData),
+            datasets: [{
+                data: Object.values(categoryData),
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1']
+            }]
+        }
     });
 }
 
-// Report Generation
 function generateReport() {
-    const type = document.getElementById('reportType').value;
-    const date = document.getElementById('reportDate').value;
-    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    if(currentChart) currentChart.destroy();
     
-    const filteredData = filterExpenses(expenses, type, date);
+    const category = document.getElementById('reportCategory').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const comparePeriod = document.getElementById('comparePeriod').value;
+    
+    let expenses = JSON.parse(localStorage.getItem('expenses'))
+        .filter(e => (!startDate || e.date >= startDate) && (!endDate || e.date <= endDate) && (!category || e.category === category));
+    
+    // Comparison data
+    let comparisonData = null;
+    if(comparePeriod) {
+        const compareDate = new Date(startDate || expenses[0]?.date);
+        comparePeriod === 'prevMonth' ? compareDate.setMonth(compareDate.getMonth() - 1) : compareDate.setFullYear(compareDate.getFullYear() - 1);
+        
+        const compareStart = compareDate.toISOString().split('T')[0];
+        comparisonData = JSON.parse(localStorage.getItem('expenses'))
+            .filter(e => e.date.startsWith(compareStart.slice(0, 7)));
+    }
+
     const ctx = document.getElementById('reportChart').getContext('2d');
-    
-    new Chart(ctx, {
+    currentChart = new Chart(ctx, {
         type: 'bar',
-        data: prepareReportData(filteredData, type)
+        data: {
+            labels: [...new Set(expenses.map(e => e.date))],
+            datasets: [{
+                label: 'Current Period',
+                data: expenses.map(e => e.amount),
+                backgroundColor: 'rgba(54, 162, 235, 0.5)'
+            }, ...(comparisonData ? [{
+                label: 'Comparison',
+                data: comparisonData.map(e => e.amount),
+                backgroundColor: 'rgba(255, 99, 132, 0.5)'
+            }] : [])]
+        }
     });
 }
 
-// Excel Export
 function exportToExcel() {
     const expenses = JSON.parse(localStorage.getItem('expenses'));
     const ws = XLSX.utils.json_to_sheet(expenses);
@@ -127,51 +174,17 @@ function exportToExcel() {
     XLSX.writeFile(wb, "expenses.xlsx");
 }
 
-// Initialize App
 function initApp() {
     initStorage();
     loadCategories();
     loadExpenses();
-    
-    // Set default dates
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('expenseDate').value = today;
     document.getElementById('startDate').value = today.slice(0, 7) + '-01';
     document.getElementById('endDate').value = today;
-    
-    // Show dashboard by default
     showSection('dashboard');
 }
 
-// Helper Functions
-function showSection(sectionId) {
-    // Hide all sections
-    document.querySelectorAll('.main-section').forEach(el => {
-        el.style.display = 'none';
-    });
-    
-    // Show selected section
-    const section = document.getElementById(sectionId);
-    if(section) {
-        section.style.display = 'block';
-    }
-    
-    // Special case for dashboard
-    if(sectionId === 'dashboard') {
-        loadCharts();
-    }
-}
-function filterExpenses(expenses, type, date) {
-    // Implement date filtering logic
-}
-
-function getMonthlyData(expenses) {
-    // Implement monthly aggregation
-}
-
-function getCategoryData(expenses) {
-    // Implement category aggregation
-}
-
-// Initialize on load
+// Initialize
 initStorage();
+document.getElementById('loginScreen').style.display = 'block';
