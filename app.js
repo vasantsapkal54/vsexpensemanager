@@ -41,17 +41,23 @@ function saveExpense(e) {
         description: document.getElementById('expenseDesc').value
     };
 
-    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    // Get existing expenses or initialize empty array
+    const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
     expenses.push(expense);
     localStorage.setItem('expenses', JSON.stringify(expenses));
+    
+    // Clear form and refresh displays
     e.target.reset();
-    loadExpenses();
-    loadCharts();
+    loadExpenses();  // Refresh table
+    loadCharts();    // Update dashboard
+    showSection('addExpense'); // Stay in current section
 }
 
 function loadExpenses() {
-    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    // Always fallback to empty array if no expenses
+    const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
     const tbody = document.getElementById('expenseList');
+    
     tbody.innerHTML = expenses.map(expense => `
         <tr>
             <td>${expense.date}</td>
@@ -65,6 +71,7 @@ function loadExpenses() {
         </tr>
     `).join('');
 }
+
 
 function deleteExpense(id) {
     let expenses = JSON.parse(localStorage.getItem('expenses'));
@@ -183,6 +190,24 @@ function initApp() {
     document.getElementById('startDate').value = today.slice(0, 7) + '-01';
     document.getElementById('endDate').value = today;
     showSection('dashboard');
+}
+
+// Add this function to handle edits
+function editExpense(id) {
+    const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+    const expense = expenses.find(e => e.id === id);
+    
+    if(expense) {
+        document.getElementById('expenseDate').value = expense.date;
+        document.getElementById('categorySelect').value = expense.category;
+        document.getElementById('expenseAmount').value = expense.amount;
+        document.getElementById('expenseDesc').value = expense.description;
+        
+        // Remove old entry
+        const updatedExpenses = expenses.filter(e => e.id !== id);
+        localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
+        loadExpenses();
+    }
 }
 
 // Initialize
