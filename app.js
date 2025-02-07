@@ -1,48 +1,52 @@
-let currentUser = null;
+// Static Credentials
+const STATIC_CREDENTIALS = {
+    username: 'admin',
+    password: 'admin555'
+};
 
-// Initialize App
-function initApp() {
-    if(!localStorage.getItem('users')) {
-        localStorage.setItem('users', JSON.stringify({}));
+// Initialize Local Storage
+function initStorage() {
+    if(!localStorage.getItem('expenses')) {
+        localStorage.setItem('expenses', JSON.stringify([]));
     }
     if(!localStorage.getItem('categories')) {
-        localStorage.setItem('categories', JSON.stringify(['Food', 'Transport', 'Utilities']));
+        localStorage.setItem('categories', JSON.stringify([
+            'Food', 'Transport', 'Utilities', 'Entertainment'
+        ]));
     }
-    loadCategories();
 }
 
-// User Authentication
+// Login Function
 function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    
-    const users = JSON.parse(localStorage.getItem('users'));
-    if(users[username] && users[username].password === password) {
-        currentUser = username;
+
+    if(username === STATIC_CREDENTIALS.username && password === STATIC_CREDENTIALS.password) {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('mainApp').style.display = 'block';
-        loadDashboard();
+        initApp();
     } else {
-        alert('Invalid credentials');
+        alert('Invalid credentials!');
     }
 }
 
 // Expense Management
 function saveExpense(e) {
     e.preventDefault();
-    const formData = new FormData(e.target);
     const expense = {
-        date: formData.get('date'),
-        category: formData.get('category'),
-        amount: parseFloat(formData.get('amount')),
-        timestamp: new Date().getTime()
+        id: Date.now(),
+        date: document.getElementById('expenseDate').value,
+        category: document.getElementById('categorySelect').value,
+        amount: parseFloat(document.getElementById('expenseAmount').value)
     };
 
-    const expenses = JSON.parse(localStorage.getItem(currentUser) || '[]');
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
     expenses.push(expense);
-    localStorage.setItem(currentUser, JSON.stringify(expenses));
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+    
     e.target.reset();
-    alert('Expense saved!');
+    alert('Expense saved successfully!');
+    loadCharts();
 }
 
 // Category Management
@@ -61,13 +65,15 @@ function loadCategories() {
 }
 
 function addCategory() {
-    const newCategory = document.getElementById('newCategory').value;
+    const newCategory = document.getElementById('newCategory').value.trim();
     if(newCategory) {
         const categories = JSON.parse(localStorage.getItem('categories'));
-        categories.push(newCategory);
-        localStorage.setItem('categories', JSON.stringify(categories));
-        loadCategories();
-        document.getElementById('newCategory').value = '';
+        if(!categories.includes(newCategory)) {
+            categories.push(newCategory);
+            localStorage.setItem('categories', JSON.stringify(categories));
+            loadCategories();
+            document.getElementById('newCategory').value = '';
+        }
     }
 }
 
@@ -78,58 +84,73 @@ function deleteCategory(category) {
     loadCategories();
 }
 
-// Dashboard Charts
-function loadDashboard() {
-    const expenses = JSON.parse(localStorage.getItem(currentUser) || '[]');
+// Chart Management
+function loadCharts() {
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
     
     // Monthly Chart
     const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
     new Chart(monthlyCtx, {
         type: 'line',
-        data: generateMonthlyData(expenses)
+        data: getMonthlyData(expenses)
     });
 
     // Category Chart
     const categoryCtx = document.getElementById('categoryChart').getContext('2d');
     new Chart(categoryCtx, {
         type: 'pie',
-        data: generateCategoryData(expenses)
+        data: getCategoryData(expenses)
     });
 }
 
 // Report Generation
 function generateReport() {
     const type = document.getElementById('reportType').value;
-    const expenses = JSON.parse(localStorage.getItem(currentUser) || '[]');
+    const date = document.getElementById('reportDate').value;
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    
+    const filteredData = filterExpenses(expenses, type, date);
     const ctx = document.getElementById('reportChart').getContext('2d');
     
     new Chart(ctx, {
         type: 'bar',
-        data: generateReportData(expenses, type)
+        data: prepareReportData(filteredData, type)
     });
 }
 
-// Helper functions for data generation
-function generateMonthlyData(expenses) {
-    // Implement monthly aggregation
-}
-
-function generateCategoryData(expenses) {
-    // Implement category aggregation
-}
-
-function generateReportData(expenses, type) {
-    // Implement report data based on type
-}
-
-// Excel Integration
+// Excel Export
 function exportToExcel() {
-    const expenses = JSON.parse(localStorage.getItem(currentUser) || '[]');
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
     const ws = XLSX.utils.json_to_sheet(expenses);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Expenses");
     XLSX.writeFile(wb, "expenses.xlsx");
 }
 
-// Initialize app
-initApp();
+// Initialize App
+function initApp() {
+    initStorage();
+    loadCategories();
+    loadCharts();
+}
+
+// Helper Functions
+function showSection(sectionId) {
+    document.querySelectorAll('.container').forEach(el => el.style.display = 'none');
+    document.getElementById(sectionId).style.display = 'block';
+}
+
+function filterExpenses(expenses, type, date) {
+    // Implement date filtering logic
+}
+
+function getMonthlyData(expenses) {
+    // Implement monthly aggregation
+}
+
+function getCategoryData(expenses) {
+    // Implement category aggregation
+}
+
+// Initialize on load
+initStorage();
