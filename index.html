@@ -33,55 +33,60 @@
                         <li class="nav-item"><a class="nav-link" onclick="showSection('dashboard')">Dashboard</a></li>
                         <li class="nav-item"><a class="nav-link" onclick="showSection('addExpense')">Add Expense</a></li>
                         <li class="nav-item"><a class="nav-link" onclick="showSection('reports')">Reports</a></li>
-                        <li class="nav-item"><a class="nav-link" onclick="showSection('categories')">Categories</a></li>
                         <li class="nav-item"><a class="nav-link" onclick="exportToExcel()">Export Excel</a></li>
                     </ul>
                 </div>
             </div>
         </nav>
 
-        <!-- Dashboard -->
-        <div id="dashboard" class="container mt-4">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card dashboard-card mb-4">
-                        <div class="card-body">
-                            <h5>Monthly Summary</h5>
-                            <canvas id="monthlyChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card dashboard-card mb-4">
-                        <div class="card-body">
-                            <h5>Category Breakdown</h5>
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Expense Form -->
-        <div id="addExpense" class="container mt-4" style="display: none;">
+        <!-- Add Expense Section -->
+        <div id="addExpense" class="container mt-4">
             <div class="card">
                 <div class="card-body">
                     <h5>Add New Expense</h5>
                     <form id="expenseForm" onsubmit="saveExpense(event)">
-                        <div class="mb-3">
-                            <label>Date</label>
-                            <input type="date" class="form-control" id="expenseDate" required>
-                        </div>
-                        <div class="mb-3">
-                            <label>Category</label>
-                            <select class="form-select" id="categorySelect" required></select>
-                        </div>
-                        <div class="mb-3">
-                            <label>Amount</label>
-                            <input type="number" class="form-control" id="expenseAmount" step="0.01" required>
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label>Date</label>
+                                <input type="date" class="form-control" id="expenseDate" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Category</label>
+                                <select class="form-select" id="categorySelect" required></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Amount</label>
+                                <input type="number" class="form-control" id="expenseAmount" step="0.01" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label>Description</label>
+                                <input type="text" class="form-control" id="expenseDesc" required>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-success">Save Expense</button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Expense List -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5>Expense History</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Amount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expenseList">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -92,36 +97,38 @@
                 <div class="card-body">
                     <h5>Generate Reports</h5>
                     <div class="row mb-3">
-                        <div class="col-md-4">
-                            <select id="reportType" class="form-select">
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                                <option value="yearly">Yearly</option>
+                        <div class="col-md-3">
+                            <select id="reportCategory" class="form-select">
+                                <option value="">All Categories</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <input type="date" id="reportDate" class="form-control">
+                        <div class="col-md-3">
+                            <input type="date" id="startDate" class="form-control">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <input type="date" id="endDate" class="form-control">
+                        </div>
+                        <div class="col-md-3">
                             <button class="btn btn-primary w-100" onclick="generateReport()">Generate</button>
                         </div>
                     </div>
-                    <canvas id="reportChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Category Management -->
-        <div id="categories" class="container mt-4" style="display: none;">
-            <div class="card">
-                <div class="card-body">
-                    <h5>Manage Categories</h5>
-                    <div class="mb-3">
-                        <input type="text" id="newCategory" class="form-control" placeholder="New Category">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>Compare With</h6>
+                                    <select id="comparePeriod" class="form-select">
+                                        <option value="">None</option>
+                                        <option value="prevMonth">Previous Month</option>
+                                        <option value="prevYear">Previous Year</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <canvas id="reportChart"></canvas>
+                        </div>
                     </div>
-                    <button onclick="addCategory()" class="btn btn-primary mb-3">Add Category</button>
-                    <ul id="categoryList" class="list-group"></ul>
                 </div>
             </div>
         </div>
