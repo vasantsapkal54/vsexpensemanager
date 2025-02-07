@@ -4,7 +4,7 @@ const STATIC_CREDENTIALS = {
     password: 'admin555'
 };
 
-// Initialize Storage
+// Initialize Local Storage
 function initStorage() {
     if(!localStorage.getItem('expenses')) {
         localStorage.setItem('expenses', JSON.stringify([]));
@@ -37,8 +37,7 @@ function saveExpense(e) {
         id: Date.now(),
         date: document.getElementById('expenseDate').value,
         category: document.getElementById('categorySelect').value,
-        amount: parseFloat(document.getElementById('expenseAmount').value),
-        description: document.getElementById('expenseDesc').value
+        amount: parseFloat(document.getElementById('expenseAmount').value)
     };
 
     const expenses = JSON.parse(localStorage.getItem('expenses'));
@@ -46,93 +45,86 @@ function saveExpense(e) {
     localStorage.setItem('expenses', JSON.stringify(expenses));
     
     e.target.reset();
-    loadExpenses();
-}
-
-function loadExpenses() {
-    const expenses = JSON.parse(localStorage.getItem('expenses'));
-    const tbody = document.getElementById('expenseList');
-    
-    tbody.innerHTML = expenses.map(expense => `
-        <tr>
-            <td>${expense.date}</td>
-            <td>${expense.category}</td>
-            <td>${expense.description}</td>
-            <td>₹${expense.amount.toFixed(2)}</td>
-            <td>
-                <button class="btn btn-sm btn-warning" onclick="editExpense(${expense.id})">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteExpense(${expense.id})">Delete</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function deleteExpense(id) {
-    let expenses = JSON.parse(localStorage.getItem('expenses'));
-    expenses = expenses.filter(e => e.id !== id);
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-    loadExpenses();
+    alert('Expense saved successfully!');
+    loadCharts();
 }
 
 // Category Management
 function loadCategories() {
     const categories = JSON.parse(localStorage.getItem('categories'));
+    const select = document.getElementById('categorySelect');
+    select.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
     
-    // Populate category selects
-    const categorySelects = document.querySelectorAll('select[id$="Select"], #reportCategory');
-    categorySelects.forEach(select => {
-        select.innerHTML = categories.map(c => `<option>${c}</option>`).join('');
+    const list = document.getElementById('categoryList');
+    list.innerHTML = categories.map(c => `
+        <li class="list-group-item d-flex justify-content-between">
+            ${c}
+            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c}')">Delete</button>
+        </li>
+    `).join('');
+}
+
+function addCategory() {
+    const newCategory = document.getElementById('newCategory').value.trim();
+    if(newCategory) {
+        const categories = JSON.parse(localStorage.getItem('categories'));
+        if(!categories.includes(newCategory)) {
+            categories.push(newCategory);
+            localStorage.setItem('categories', JSON.stringify(categories));
+            loadCategories();
+            document.getElementById('newCategory').value = '';
+        }
+    }
+}
+
+function deleteCategory(category) {
+    const categories = JSON.parse(localStorage.getItem('categories'));
+    const filtered = categories.filter(c => c !== category);
+    localStorage.setItem('categories', JSON.stringify(filtered));
+    loadCategories();
+}
+
+// Chart Management
+function loadCharts() {
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    
+    // Monthly Chart
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'line',
+        data: getMonthlyData(expenses)
+    });
+
+    // Category Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+        type: 'pie',
+        data: getCategoryData(expenses)
     });
 }
 
 // Report Generation
 function generateReport() {
-    const category = document.getElementById('reportCategory').value;
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
-    const comparePeriod = document.getElementById('comparePeriod').value;
+    const type = document.getElementById('reportType').value;
+    const date = document.getElementById('reportDate').value;
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
     
-    let expenses = JSON.parse(localStorage.getItem('expenses'));
-    
-    // Filter expenses
-    expenses = expenses.filter(e => {
-        const dateMatch = (!startDate || e.date >= startDate) && (!endDate || e.date <= endDate);
-        const categoryMatch = !category || e.category === category;
-        return dateMatch && categoryMatch;
-    });
-    
-    // Comparison logic
-    let comparisonData = null;
-    if(comparePeriod) {
-        const compareDate = new Date(startDate || expenses[0]?.date);
-        if(comparePeriod === 'prevMonth') {
-            compareDate.setMonth(compareDate.getMonth() - 1);
-        } else {
-            compareDate.setFullYear(compareDate.getFullYear() - 1);
-        }
-        
-        const compareStart = compareDate.toISOString().split('T')[0];
-        comparisonData = JSON.parse(localStorage.getItem('expenses'))
-            .filter(e => e.date.startsWith(compareStart.slice(0, 7)));
-    }
-
-    // Generate chart
+    const filteredData = filterExpenses(expenses, type, date);
     const ctx = document.getElementById('reportChart').getContext('2d');
+    
     new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: expenses.map(e => e.date),
-            datasets: [{
-                label: 'Current Period',
-                data: expenses.map(e => e.amount),
-                backgroundColor: 'rgba(54, 162, 235, 0.5)'
-            }, ...(comparisonData ? [{
-                label: 'Comparison Period',
-                data: comparisonData.map(e => e.amount),
-                backgroundColor: 'rgba(255, 99, 132, 0.5)'
-            }] : [])]
-        }
+        data: prepareReportData(filteredData, type)
     });
+}
+
+// Excel Export
+function exportToExcel() {
+    const expenses = JSON.parse(localStorage.getItem('expenses'));
+    const ws = XLSX.utils.json_to_sheet(expenses);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+    XLSX.writeFile(wb, "expenses.xlsx");
 }
 
 // Initialize App
@@ -146,8 +138,40 @@ function initApp() {
     document.getElementById('expenseDate').value = today;
     document.getElementById('startDate').value = today.slice(0, 7) + '-01';
     document.getElementById('endDate').value = today;
+    
+    // Show dashboard by default
+    showSection('dashboard');
 }
 
-// Start the app
+// Helper Functions
+function showSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.main-section').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Show selected section
+    const section = document.getElementById(sectionId);
+    if(section) {
+        section.style.display = 'block';
+    }
+    
+    // Special case for dashboard
+    if(sectionId === 'dashboard') {
+        loadCharts();
+    }
+}
+function filterExpenses(expenses, type, date) {
+    // Implement date filtering logic
+}
+
+function getMonthlyData(expenses) {
+    // Implement monthly aggregation
+}
+
+function getCategoryData(expenses) {
+    // Implement category aggregation
+}
+
+// Initialize on load
 initStorage();
-document.getElementById('loginScreen').style.display = 'block';
